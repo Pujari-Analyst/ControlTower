@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Commercial Excellence Control Tower</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#12151A;
+    --panel:#1A1F27;
+    --panel-alt:#1F2530;
+    --border:#2A313C;
+    --text:#E7EAEE;
+    --dim:#8B94A3;
+    --faint:#5A6373;
+    --accent:#4E82E8;
+    --accent-dim:#33455F;
+    --green:#3FAE72;
+    --green-bg:#17281F;
+    --amber:#E0A83F;
+    --amber-bg:#2B2415;
+    --red:#E1584F;
+    --red-bg:#2C1A19;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px;
+    display:flex;
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+
+  /* ---- Sidebar ---- */
+  .rail{
+    width:216px;
+    flex-shrink:0;
+    background:#0E1116;
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .rail-brand{
+    padding:20px 18px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  .rail-brand .mark{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--accent);
+    letter-spacing:0.04em;
+  }
+  .rail-brand h1{
+    font-size:15px;
+    font-weight:600;
+    margin-top:4px;
+    line-height:1.3;
+  }
+  .rail-nav{
+    flex:1;
+    padding:10px 8px;
+    overflow-y:auto;
+  }
+  .rail-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 10px;
+    border-radius:4px;
+    color:var(--dim);
+    font-size:13px;
+    cursor:pointer;
+    border-left:2px solid transparent;
+    margin-bottom:1px;
+  }
+  .rail-item:hover{background:var(--panel); color:var(--text);}
+  .rail-item.active{
+    background:var(--accent-dim);
+    color:var(--text);
+    border-left:2px solid var(--accent);
+  }
+  .rail-dot{width:6px; height:6px; border-radius:50%; flex-shrink:0;}
+  .rail-foot{
+    padding:14px 18px;
+    border-top:1px solid var(--border);
+    font-size:11px;
+    color:var(--faint);
+  }
+
+  /* ---- Main ---- */
+  .main{flex:1; min-width:0; display:flex; flex-direction:column;}
+  .topstrip{
+    padding:18px 28px;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .topstrip h2{font-size:19px; font-weight:600;}
+  .topstrip .sub{color:var(--dim); font-size:12.5px; margin-top:3px;}
+  .filters{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip{
+    font-size:12px;
+    color:var(--dim);
+    background:var(--panel);
+    border:1px solid var(--border);
+    padding:5px 10px;
+    border-radius:3px;
+  }
+  .content{padding:24px 28px 60px; flex:1;}
+  .page{display:none;}
+  .page.active{display:block;}
+
+  /* ---- KPI grid ---- */
+  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:22px;}
+  .kpi{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:16px 16px 14px;
+    position:relative;
+  }
+  .kpi .label{font-size:12px; color:var(--dim); margin-bottom:10px;}
+  .kpi .value{font-family:'IBM Plex Mono', monospace; font-size:28px; font-weight:600; line-height:1;}
+  .kpi .delta{font-size:11.5px; margin-top:8px; color:var(--dim);}
+  .kpi.hero{
+    grid-column:span 1;
+    border-color:var(--accent-dim);
+  }
+  .kpi.hero::before, .kpi.hero::after{
+    content:"";
+    position:absolute;
+    width:10px; height:10px;
+    border-color:var(--accent);
+    border-style:solid;
+    opacity:0.7;
+  }
+  .kpi.hero::before{top:-1px; left:-1px; border-width:1.5px 0 0 1.5px;}
+  .kpi.hero::after{bottom:-1px; right:-1px; border-width:0 1.5px 1.5px 0;}
+  .rag-dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px;}
+  .g{background:var(--green);} .a{background:var(--amber);} .r{background:var(--red);}
+  .rag-tag{
+    display:inline-flex; align-items:center;
+    font-size:11.5px;
+    padding:2px 8px 2px 6px;
+    border-radius:3px;
+  }
+  .rag-tag.g{background:var(--green-bg); color:var(--green);}
+  .rag-tag.a{background:var(--amber-bg); color:var(--amber);}
+  .rag-tag.r{background:var(--red-bg); color:var(--red);}
+
+  /* ---- Panels / charts / tables ---- */
+  .row{display:grid; gap:16px; margin-bottom:16px;}
+  .row.split{grid-template-columns:1.3fr 1fr;}
+  @media (max-width:900px){ .row.split{grid-template-columns:1fr;} }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:16px 18px 18px;
+  }
+  .panel h3{font-size:13.5px; font-weight:600; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;}
+  .panel h3 span.n{font-size:11.5px; color:var(--faint); font-weight:400;}
+  table{width:100%; border-collapse:collapse; font-size:12.8px;}
+  th{
+    text-align:left;
+    color:var(--faint);
+    font-weight:500;
+    font-size:11.5px;
+    padding:0 10px 8px 0;
+    border-bottom:1px solid var(--border);
+  }
+  td{padding:9px 10px 9px 0; border-bottom:1px solid #20252E; color:var(--text);}
+  tr:last-child td{border-bottom:none;}
+  td.num, th.num{text-align:right; font-family:'IBM Plex Mono', monospace;}
+  .bar-track{background:#242A34; border-radius:2px; height:5px; width:100%; overflow:hidden;}
+  .bar-fill{height:100%; border-radius:2px;}
+  .name-cell{display:flex; flex-direction:column;}
+  .name-cell .sub{font-size:11px; color:var(--faint);}
+  .chart-wrap{height:230px; position:relative;}
+  canvas{max-height:230px;}
+  .tag{
+    font-size:11px;
+    padding:2px 7px;
+    border-radius:3px;
+    background:var(--panel-alt);
+    color:var(--dim);
+    border:1px solid var(--border);
+  }
+  .prio-high{color:var(--red);}
+  .prio-med{color:var(--amber);}
+  .prio-low{color:var(--dim);}
+</style>
+</head>
+<body>
+
+<div class="rail">
+  <div class="rail-brand">
+    <div class="mark">COMMERCIAL EXCELLENCE</div>
+    <h1>Trade Marketing<br>Control Tower</h1>
+  </div>
+  <div class="rail-nav" id="nav"></div>
+  <div class="rail-foot">Keimed · FY26–27<br><span id="data-badge">Loading…</span></div>
+</div>
+
+<div class="main">
+  <div class="topstrip">
+    <div>
+      <h2 id="page-title">Executive Summary</h2>
+      <div class="sub" id="page-sub">Business, commercial and execution status across all principals</div>
+    </div>
+    <div class="filters">
+      <div class="chip">Period: Jun 2026</div>
+      <div class="chip">All principals</div>
+      <div class="chip">All channels</div>
+    </div>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<script>
+/* ============ CONFIG ============
+   Paste your deployed Apps Script web-app URL here once Code.gs is live.
+   Leave blank to keep running on the built-in demo data below. */
+const CONFIG = { API_URL: '' };
+
+/* ============ DEMO DATA — shaped exactly like the documented tables (01_Master_Principal … 09_Calendar).
+   Replaces itself automatically with live data once CONFIG.API_URL is set. ============ */
+
+const MOCK_PRINCIPALS = [
+  {id:'P001', name:'ABC Pharma', channel:'Retail', target:500000, achieved:481000, incentiveEligible:150000, incentiveReceived:150000},
+  {id:'P002', name:'Nova Biocare', channel:'Institutional', target:320000, achieved:243000, incentiveEligible:96000, incentiveReceived:58000},
+  {id:'P003', name:'Vitalis Labs', channel:'Retail', target:410000, achieved:399000, incentiveEligible:82000, incentiveReceived:82000},
+  {id:'P004', name:'Sundar Formulations', channel:'Trade', target:275000, achieved:171000, incentiveEligible:55000, incentiveReceived:19000},
+  {id:'P005', name:'Meridian Pharma', channel:'Institutional', target:360000, achieved:352000, incentiveEligible:108000, incentiveReceived:97000},
+  {id:'P006', name:'Kavach Health', channel:'Retail', target:210000, achieved:118000, incentiveEligible:42000, incentiveReceived:11000},
+];
+
+const MOCK_CAMPAIGNS = [
+  {id:'C0045', principal:'ABC Pharma', name:'Monsoon Push', material:'POSM Kit', committed:'01-Jun', dispatch:'03-Jun', confirmed:'07-Jun', status:'Confirmed'},
+  {id:'C0046', principal:'Nova Biocare', name:'Institutional Drive', material:'Flyers', committed:'04-Jun', dispatch:'12-Jun', confirmed:null, status:'Delayed'},
+  {id:'C0047', principal:'Vitalis Labs', name:'Retail Refresh', material:'Standee', committed:'02-Jun', dispatch:'02-Jun', confirmed:'04-Jun', status:'Confirmed'},
+  {id:'C0048', principal:'Sundar Formulations', name:'Trade Loyalty', material:'Collateral', committed:'06-Jun', dispatch:null, confirmed:null, status:'Planned'},
+  {id:'C0049', principal:'Kavach Health', name:'Chemist Connect', material:'POSM Kit', committed:'01-Jun', dispatch:'09-Jun', confirmed:null, status:'Delayed'},
+];
+
+const MOCK_LAUNCHES = [
+  {id:'L-007', principal:'ABC Pharma', product:'ABC-Cardia', date:'15-Jul-2026', readiness:80, status:'On Track'},
+  {id:'L-008', principal:'Meridian Pharma', product:'Meridin-XR', date:'22-Jul-2026', readiness:55, status:'At Risk'},
+  {id:'L-009', principal:'Nova Biocare', product:'NovaCare Plus', date:'02-Aug-2026', readiness:35, status:'Critical'},
+];
+
+const MOCK_ACTIONS = [
+  {id:'A-0034', principal:'Nova Biocare', issue:'POSM dispatch delayed 8 days', root:'Principal courier delay', owner:'You', priority:'High', due:'12-Jun', status:'Open', ageing:6},
+  {id:'A-0035', principal:'Sundar Formulations', issue:'ToT achievement trailing pace', root:'Field stock unavailability', owner:'MAM – Trade', priority:'High', due:'14-Jun', status:'Open', ageing:9},
+  {id:'A-0036', principal:'Kavach Health', issue:'Incentive claim unacknowledged', root:'Principal finance backlog', owner:'You', priority:'Med', due:'18-Jun', status:'Open', ageing:3},
+  {id:'A-0037', principal:'Nova Biocare', issue:'Launch material not finalized', root:'Awaiting principal approval', owner:'You', priority:'High', due:'20-Jun', status:'Open', ageing:2},
+  {id:'A-0033', principal:'Vitalis Labs', issue:'Standee count short at 2 outlets', root:'Print run shortfall', owner:'MAM – Retail', priority:'Low', due:'09-Jun', status:'Closed', ageing:0},
+];
+
+const MOCK_MAM_REVIEWS = [
+  {date:'08-Jun', mam:'S. Rao', principal:'ABC Pharma', topic:'POSM field check', issue:'No', note:'All counters stocked, on schedule'},
+  {date:'08-Jun', mam:'K. Nair', principal:'Nova Biocare', topic:'Institutional rollout', issue:'Yes', note:'Flyers not yet received at 3 hospitals'},
+  {date:'09-Jun', mam:'S. Rao', principal:'Kavach Health', topic:'Chemist Connect', issue:'Yes', note:'Kit dispatch delayed, chemists asking'},
+  {date:'09-Jun', mam:'P. Deshmukh', principal:'Meridian Pharma', topic:'Institutional Drive', issue:'No', note:'On track, no field issues'},
+];
+
+const MOCK_MY_PERF = {
+  campaignExecPct: 78, incentiveRealPct: 79,
+  issuesRaised: 12, issuesClosed: 8,
+  actionsClosedPct: 67, avgClosureDays: 4.2,
+  onTimeReportingPct: 92,
+  launchesOnTrack: 1, launchesTotal: 3,
+};
+
+/* ============ live data holders — populated by init() before first render ============ */
+let PRINCIPALS, CAMPAIGNS, LAUNCHES, ACTIONS, MAM_REVIEWS, MY_PERF;
+let totalTarget, totalAchieved, overallAchv, totalGap;
+let totalIncEligible, totalIncReceived, overallIncentive;
+let campConfirmed, campExecPct, avgReadiness;
+let openActions, criticalOpen, overdueActions;
+
+/* ============ derived helpers ============ */
+const pct = (a,b) => b === 0 ? 0 : Math.round((a/b)*1000)/10;
+const ragForAchv = p => p>=95?'g':p>=85?'a':'r';
+const ragForIncentive = p => p>=90?'g':p>=70?'a':'r';
+const ragForCampaign = p => p>=90?'g':p>=75?'a':'r';
+const ragForReadiness = p => p>=90?'g':p>=70?'a':'r';
+const ragForAgeing = d => d<=0?'g':d<=7?'a':'r';
+
+function computeDerived(){
+  totalTarget = PRINCIPALS.reduce((s,p)=>s+p.target,0);
+  totalAchieved = PRINCIPALS.reduce((s,p)=>s+p.achieved,0);
+  overallAchv = pct(totalAchieved, totalTarget);
+  totalGap = totalAchieved - totalTarget;
+
+  totalIncEligible = PRINCIPALS.reduce((s,p)=>s+p.incentiveEligible,0);
+  totalIncReceived = PRINCIPALS.reduce((s,p)=>s+p.incentiveReceived,0);
+  overallIncentive = pct(totalIncReceived, totalIncEligible);
+
+  campConfirmed = CAMPAIGNS.filter(c=>c.status==='Confirmed').length;
+  campExecPct = pct(campConfirmed, CAMPAIGNS.length);
+
+  avgReadiness = LAUNCHES.length ? Math.round(LAUNCHES.reduce((s,l)=>s+l.readiness,0)/LAUNCHES.length) : 0;
+
+  openActions = ACTIONS.filter(a=>a.status==='Open');
+  criticalOpen = openActions.filter(a=>a.priority==='High').length;
+  overdueActions = openActions.filter(a=>a.ageing>7).length;
+}
+
+/* ============ data loading — live Apps Script feed, falls back to demo data ============ */
+async function loadData(){
+  if(CONFIG.API_URL){
+    try{
+      const res = await fetch(CONFIG.API_URL);
+      if(!res.ok) throw new Error('Request failed: ' + res.status);
+      const json = await res.json();
+      PRINCIPALS = json.PRINCIPALS || [];
+      CAMPAIGNS = json.CAMPAIGNS || [];
+      LAUNCHES = json.LAUNCHES || [];
+      ACTIONS = json.ACTIONS || [];
+      MAM_REVIEWS = json.MAM_REVIEWS || [];
+      MY_PERF = json.MY_PERF || MOCK_MY_PERF;
+      setDataBadge(true);
+      return;
+    }catch(err){
+      console.warn('Live data fetch failed, showing demo data instead:', err);
+    }
+  }
+  PRINCIPALS = MOCK_PRINCIPALS;
+  CAMPAIGNS = MOCK_CAMPAIGNS;
+  LAUNCHES = MOCK_LAUNCHES;
+  ACTIONS = MOCK_ACTIONS;
+  MAM_REVIEWS = MOCK_MAM_REVIEWS;
+  MY_PERF = MOCK_MY_PERF;
+  setDataBadge(false);
+}
+
+function setDataBadge(isLive){
+  const el = document.getElementById('data-badge');
+  if(!el) return;
+  el.textContent = isLive ? 'Live · from Google Sheet' : 'Demo data · set CONFIG.API_URL for live feed';
+  el.style.color = isLive ? 'var(--green)' : 'var(--faint)';
+}
+
+function fmt(n){ return (n||0).toLocaleString('en-IN'); }
+function bar(pctVal, ragClass){
+  const color = ragClass==='g'?'var(--green)':ragClass==='a'?'var(--amber)':'var(--red)';
+  return `<div class="bar-track"><div class="bar-fill" style="width:${Math.min(pctVal,100)}%;background:${color}"></div></div>`;
+}
+function ragTag(cls,label){ return `<span class="rag-tag ${cls}"><span class="rag-dot ${cls}"></span>${label}</span>`; }
+
+/* ============ Page renderers ============ */
+const pages = {};
+
+pages.exec = {
+  title:'Executive Summary', sub:'Business, commercial and execution status across all principals',
+  render(){
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero">
+        <div class="label">Overall ToT achievement</div>
+        <div class="value mono">${overallAchv}%</div>
+        <div class="delta">${ragTag(ragForAchv(overallAchv), ragForAchv(overallAchv)==='g'?'On track':ragForAchv(overallAchv)==='a'?'At risk':'Critical')}</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Target gap</div>
+        <div class="value mono">₹${fmt(Math.round(totalGap/1000))}k</div>
+        <div class="delta">vs ₹${fmt(Math.round(totalTarget/1000))}k target</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Incentive realization</div>
+        <div class="value mono">${overallIncentive}%</div>
+        <div class="delta">${ragTag(ragForIncentive(overallIncentive), ragForIncentive(overallIncentive)==='g'?'Healthy':ragForIncentive(overallIncentive)==='a'?'Watch':'Collect')}</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Campaign execution</div>
+        <div class="value mono">${campExecPct}%</div>
+        <div class="delta">${campConfirmed} of ${CAMPAIGNS.length} confirmed in field</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Launch readiness (avg)</div>
+        <div class="value mono">${avgReadiness}%</div>
+        <div class="delta">${LAUNCHES.length} launches in flight</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Open critical actions</div>
+        <div class="value mono" style="color:${criticalOpen>0?'var(--red)':'var(--text)'}">${criticalOpen}</div>
+        <div class="delta">${overdueActions} overdue past 7 days</div>
+      </div>
+    </div>
+
+    <div class="row split">
+      <div class="panel">
+        <h3>Principals at risk <span class="n">sorted by achievement</span></h3>
+        <table>
+          <tr><th>Principal</th><th>Channel</th><th class="num">Achv %</th><th style="width:110px">Pace</th><th>Status</th></tr>
+          ${PRINCIPALS.slice().sort((a,b)=>pct(a.achieved,a.target)-pct(b.achieved,b.target)).map(p=>{
+            const a = pct(p.achieved,p.target); const cls = ragForAchv(a);
+            return `<tr><td>${p.name}</td><td class="sub" style="color:var(--dim)">${p.channel}</td><td class="num">${a}%</td><td>${bar(a,cls)}</td><td>${ragTag(cls, cls==='g'?'On track':cls==='a'?'At risk':'Critical')}</td></tr>`;
+          }).join('')}
+        </table>
+      </div>
+      <div class="panel">
+        <h3>Top corrective actions <span class="n">by impact</span></h3>
+        <table>
+          ${ACTIONS.filter(a=>a.status==='Open').sort((a,b)=>b.ageing-a.ageing).slice(0,5).map(a=>`
+            <tr>
+              <td class="name-cell"><span>${a.issue}</span><span class="sub">${a.principal} · owner: ${a.owner}</span></td>
+              <td class="num" style="white-space:nowrap;">${ragTag(ragForAgeing(a.ageing), a.ageing+'d')}</td>
+            </tr>`).join('')}
+        </table>
+      </div>
+    </div>
+    `;
+  }
+};
+
+pages.tot = {
+  title:'ToT Performance', sub:'Target vs achievement, tracked at company and channel level',
+  render(){
+    setTimeout(()=>drawTrendChart(), 0);
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Achievement %</div><div class="value mono">${overallAchv}%</div></div>
+      <div class="kpi"><div class="label">Target</div><div class="value mono">₹${fmt(Math.round(totalTarget/1000))}k</div></div>
+      <div class="kpi"><div class="label">Achieved</div><div class="value mono">₹${fmt(Math.round(totalAchieved/1000))}k</div></div>
+      <div class="kpi"><div class="label">Required run rate</div><div class="value mono">₹${fmt(Math.round(Math.abs(totalGap)/22/1000))}k<span style="font-size:14px;color:var(--dim)">/day</span></div><div class="delta">to close the gap in 22 working days</div></div>
+    </div>
+    <div class="row split">
+      <div class="panel">
+        <h3>Achievement trend <span class="n">last 6 weeks, all principals</span></h3>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>By principal &amp; channel</h3>
+        <table>
+          <tr><th>Principal</th><th>Channel</th><th class="num">Target</th><th class="num">Achieved</th><th class="num">Gap</th></tr>
+          ${PRINCIPALS.map(p=>`<tr><td>${p.name}</td><td style="color:var(--dim)">${p.channel}</td><td class="num">${fmt(p.target)}</td><td class="num">${fmt(p.achieved)}</td><td class="num" style="color:${p.achieved-p.target<0?'var(--red)':'var(--green)'}">${fmt(p.achieved-p.target)}</td></tr>`).join('')}
+        </table>
+      </div>
+    </div>
+    `;
+  }
+};
+
+pages.campaign = {
+  title:'Campaign & POSM Execution', sub:'Material sourced, dispatched and field-confirmed against commitments',
+  render(){
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Campaign execution</div><div class="value mono">${campExecPct}%</div></div>
+      <div class="kpi"><div class="label">Confirmed in field</div><div class="value mono">${campConfirmed}</div><div class="delta">of ${CAMPAIGNS.length} planned</div></div>
+      <div class="kpi"><div class="label">Delayed</div><div class="value mono" style="color:var(--red)">${CAMPAIGNS.filter(c=>c.status==='Delayed').length}</div></div>
+      <div class="kpi"><div class="label">Planned, not dispatched</div><div class="value mono" style="color:var(--amber)">${CAMPAIGNS.filter(c=>c.status==='Planned').length}</div></div>
+    </div>
+    <div class="panel">
+      <h3>Campaign status <span class="n">committed → dispatched → MAM-confirmed</span></h3>
+      <table>
+        <tr><th>Campaign</th><th>Principal</th><th>Material</th><th>Committed</th><th>Dispatched</th><th>Confirmed</th><th>Status</th></tr>
+        ${CAMPAIGNS.map(c=>{
+          const cls = c.status==='Confirmed'?'g':c.status==='Delayed'?'r':'a';
+          return `<tr><td>${c.name}</td><td>${c.principal}</td><td style="color:var(--dim)">${c.material}</td><td class="mono">${c.committed}</td><td class="mono">${c.dispatch||'—'}</td><td class="mono">${c.confirmed||'—'}</td><td>${ragTag(cls,c.status)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>
+    `;
+  }
+};
+
+pages.incentive = {
+  title:'Incentive & Claims', sub:'Accrual, claim status and realization against signed ToT incentives',
+  render(){
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Incentive realization</div><div class="value mono">${overallIncentive}%</div></div>
+      <div class="kpi"><div class="label">Eligible</div><div class="value mono">₹${fmt(Math.round(totalIncEligible/1000))}k</div></div>
+      <div class="kpi"><div class="label">Received</div><div class="value mono">₹${fmt(Math.round(totalIncReceived/1000))}k</div></div>
+      <div class="kpi"><div class="label">Outstanding</div><div class="value mono" style="color:var(--amber)">₹${fmt(Math.round((totalIncEligible-totalIncReceived)/1000))}k</div></div>
+    </div>
+    <div class="panel">
+      <h3>Realization by principal</h3>
+      <table>
+        <tr><th>Principal</th><th class="num">Eligible</th><th class="num">Received</th><th class="num">Realization</th><th style="width:110px">Status</th></tr>
+        ${PRINCIPALS.map(p=>{
+          const r = pct(p.incentiveReceived, p.incentiveEligible); const cls = ragForIncentive(r);
+          return `<tr><td>${p.name}</td><td class="num">${fmt(p.incentiveEligible)}</td><td class="num">${fmt(p.incentiveReceived)}</td><td class="num">${r}%</td><td>${bar(r,cls)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>
+    `;
+  }
+};
+
+pages.launch = {
+  title:'New Product Launches', sub:'Go-to-market readiness for principal launches in flight',
+  render(){
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Average readiness</div><div class="value mono">${avgReadiness}%</div></div>
+      <div class="kpi"><div class="label">Launches in flight</div><div class="value mono">${LAUNCHES.length}</div></div>
+      <div class="kpi"><div class="label">At risk / critical</div><div class="value mono" style="color:var(--red)">${LAUNCHES.filter(l=>l.readiness<70).length}</div></div>
+    </div>
+    <div class="panel">
+      <h3>Launch readiness</h3>
+      <table>
+        <tr><th>Product</th><th>Principal</th><th>Launch date</th><th style="width:140px">Readiness</th><th class="num">%</th><th>Status</th></tr>
+        ${LAUNCHES.map(l=>{
+          const cls = ragForReadiness(l.readiness);
+          return `<tr><td>${l.product}</td><td>${l.principal}</td><td class="mono">${l.date}</td><td>${bar(l.readiness,cls)}</td><td class="num">${l.readiness}%</td><td>${ragTag(cls,l.status)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>
+    `;
+  }
+};
+
+pages.mam = {
+  title:'MAM / Field Execution', sub:'Weekly review outcomes and field feedback from Market Activation Managers',
+  render(){
+    const issues = MAM_REVIEWS.filter(r=>r.issue==='Yes').length;
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Reviews this week</div><div class="value mono">${MAM_REVIEWS.length}</div></div>
+      <div class="kpi"><div class="label">Issues raised</div><div class="value mono" style="color:var(--amber)">${issues}</div></div>
+      <div class="kpi"><div class="label">Clean reviews</div><div class="value mono" style="color:var(--green)">${MAM_REVIEWS.length-issues}</div></div>
+    </div>
+    <div class="panel">
+      <h3>Review log</h3>
+      <table>
+        <tr><th>Date</th><th>MAM</th><th>Principal</th><th>Topic</th><th>Field note</th><th>Issue?</th></tr>
+        ${MAM_REVIEWS.map(r=>`<tr><td class="mono">${r.date}</td><td>${r.mam}</td><td>${r.principal}</td><td style="color:var(--dim)">${r.topic}</td><td style="color:var(--dim)">${r.note}</td><td>${r.issue==='Yes'?ragTag('a','Yes'):ragTag('g','No')}</td></tr>`).join('')}
+      </table>
+    </div>
+    `;
+  }
+};
+
+pages.actions = {
+  title:'Action & Risk Management', sub:'Every gap, its root cause, and where it stands on the way to closure',
+  render(){
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Open actions</div><div class="value mono">${openActions.length}</div></div>
+      <div class="kpi"><div class="label">Overdue (&gt;7 days)</div><div class="value mono" style="color:var(--red)">${overdueActions}</div></div>
+      <div class="kpi"><div class="label">High priority open</div><div class="value mono" style="color:var(--amber)">${criticalOpen}</div></div>
+      <div class="kpi"><div class="label">Closed this month</div><div class="value mono" style="color:var(--green)">${ACTIONS.filter(a=>a.status==='Closed').length}</div></div>
+    </div>
+    <div class="panel">
+      <h3>Action tracker</h3>
+      <table>
+        <tr><th>ID</th><th>Principal</th><th>Issue</th><th>Root cause</th><th>Owner</th><th>Priority</th><th>Due</th><th class="num">Ageing</th><th>Status</th></tr>
+        ${ACTIONS.map(a=>`
+          <tr>
+            <td class="mono">${a.id}</td>
+            <td>${a.principal}</td>
+            <td>${a.issue}</td>
+            <td style="color:var(--dim)">${a.root}</td>
+            <td>${a.owner}</td>
+            <td class="prio-${a.priority==='High'?'high':a.priority==='Med'?'med':'low'}">${a.priority}</td>
+            <td class="mono">${a.due}</td>
+            <td class="num">${a.status==='Closed'?'—':ragTag(ragForAgeing(a.ageing), a.ageing+'d')}</td>
+            <td>${a.status==='Closed'?ragTag('g','Closed'):ragTag('a','Open')}</td>
+          </tr>`).join('')}
+      </table>
+    </div>
+    `;
+  }
+};
+
+pages.myperf = {
+  title:'My Performance', sub:'What this role has driven — outcomes, not activity counts',
+  render(){
+    const m = MY_PERF;
+    return `
+    <div class="kpi-grid">
+      <div class="kpi hero"><div class="label">Action closure rate</div><div class="value mono">${m.actionsClosedPct}%</div><div class="delta">avg ${m.avgClosureDays} days to close</div></div>
+      <div class="kpi"><div class="label">Campaign execution (my book)</div><div class="value mono">${m.campaignExecPct}%</div></div>
+      <div class="kpi"><div class="label">Incentive realization (my book)</div><div class="value mono">${m.incentiveRealPct}%</div></div>
+      <div class="kpi"><div class="label">Issues identified vs closed</div><div class="value mono">${m.issuesRaised} / ${m.issuesClosed}</div></div>
+      <div class="kpi"><div class="label">On-time dashboard delivery</div><div class="value mono">${m.onTimeReportingPct}%</div><div class="delta">maps to JD "Dashboard Discipline"</div></div>
+      <div class="kpi"><div class="label">Launches ready on schedule</div><div class="value mono">${m.launchesOnTrack} / ${m.launchesTotal}</div></div>
+    </div>
+    <div class="panel">
+      <h3>Reading this page</h3>
+      <p style="color:var(--dim); line-height:1.7; max-width:640px;">
+        Every metric here is an outcome you drove, not an activity count — no review counts, no email volume.
+        Closure rate and closure speed show follow-through; the incentive and campaign figures are your
+        book of principals specifically; on-time delivery ties directly to the JD's own "Dashboard Discipline" KPI.
+      </p>
+    </div>
+    `;
+  }
+};
+
+/* ============ chart ============ */
+let trendChartInstance;
+function drawTrendChart(){
+  const ctx = document.getElementById('trendChart');
+  if(!ctx) return;
+  if(trendChartInstance) trendChartInstance.destroy();
+  trendChartInstance = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels:['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6'],
+      datasets:[
+        {label:'Target pace', data:[16,33,50,66,83,100], borderColor:'#5A6373', borderDash:[4,4], pointRadius:0, borderWidth:1.5},
+        {label:'Actual achievement', data:[14,29,44,61,74,overallAchv], borderColor:'#4E82E8', backgroundColor:'rgba(78,130,232,0.08)', fill:true, pointRadius:3, pointBackgroundColor:'#4E82E8', borderWidth:2, tension:0.25}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#8B94A3', font:{family:'IBM Plex Sans', size:11}, boxWidth:12 } } },
+      scales:{
+        x:{ ticks:{color:'#5A6373', font:{size:11}}, grid:{color:'#20252E'} },
+        y:{ ticks:{color:'#5A6373', font:{size:11}, callback:v=>v+'%'}, grid:{color:'#20252E'} }
+      }
+    }
+  });
+}
+
+/* ============ nav + render ============ */
+const NAV = [
+  {key:'exec', label:'Executive Summary', dot:'g'},
+  {key:'tot', label:'ToT Performance', dot:'a'},
+  {key:'campaign', label:'Campaign & POSM', dot:'r'},
+  {key:'incentive', label:'Incentive & Claims', dot:'a'},
+  {key:'launch', label:'New Launches', dot:'r'},
+  {key:'mam', label:'MAM / Field', dot:'g'},
+  {key:'actions', label:'Action & Risk', dot:'r'},
+  {key:'myperf', label:'My Performance', dot:'g'},
+];
+
+function buildNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = NAV.map(n=>`
+    <div class="rail-item" data-key="${n.key}">
+      <span class="rail-dot ${n.dot}"></span>${n.label}
+    </div>`).join('');
+  nav.querySelectorAll('.rail-item').forEach(el=>{
+    el.addEventListener('click', ()=>showPage(el.dataset.key));
+  });
+}
+
+function showPage(key){
+  document.querySelectorAll('.rail-item').forEach(el=>el.classList.toggle('active', el.dataset.key===key));
+  const p = pages[key];
+  document.getElementById('page-title').textContent = p.title;
+  document.getElementById('page-sub').textContent = p.sub;
+  document.getElementById('content').innerHTML = p.render();
+}
+
+async function init(){
+  await loadData();
+  computeDerived();
+  buildNav();
+  showPage('exec');
+}
+init();
+</script>
+</body>
+</html>
